@@ -210,10 +210,9 @@ async function loadProducts() {
             ? `$${Number(product.price).toFixed(2)}`
             : "";
 
-                const imageHtml = product.image_url
-            ? `<p style="color: red; font-weight: bold;">TEST123 - image_url is: ${product.image_url}</p>`
-            : `<p style="color: red; font-weight: bold;">TEST123 - no image_url</p>`;
-            
+                     const imageHtml = product.image_url
+            ? `<img src="${product.image_url}" alt="${escapeHtml(product.name)}" style="width: 100%; max-width: 300px; height: auto; border-radius: 10px; margin-top: 12px; display: block;">`
+            : "";
 
         item.innerHTML = `
             <div class="product-item-info" style="width: 100%;">
