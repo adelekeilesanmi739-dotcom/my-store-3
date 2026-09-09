@@ -71,8 +71,18 @@ async function loadProfile() {
     overviewBusinessName.textContent =
         (data && data.business_name) ? data.business_name : "Not set yet";
 
-    overviewProductType.textContent =
+        overviewProductType.textContent =
         (data && data.product_type) ? data.product_type : "Not set yet";
+
+    const overviewStoreLink = document.getElementById("overviewStoreLink");
+
+    if (data && data.store_slug) {
+        const url = `store.html?store=${data.store_slug}`;
+        overviewStoreLink.innerHTML = `<strong>Storefront:</strong> <a href="${url}" target="_blank">View My Storefront</a>`;
+        overviewStoreLink.style.display = "block";
+    } else {
+        overviewStoreLink.style.display = "none";
+    }
 }
 
 
@@ -122,7 +132,30 @@ changeSelectionButton.addEventListener("click", () => {
 const businessForm = document.getElementById("businessForm");
 
 businessForm.addEventListener("submit", async (e) => {
+// Auto-suggest a store URL slug as the user types a business name,
+// but only if they haven't already typed their own slug.
+const businessNameInput = document.getElementById("businessName");
+const storeSlugInput = document.getElementById("storeSlug");
 
+businessNameInput.addEventListener("input", () => {
+
+    if (storeSlugInput.dataset.userEdited === "true") {
+        return;
+    }
+
+    const suggestion = businessNameInput.value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-");
+
+    storeSlugInput.value = suggestion;
+});
+
+// If the user manually edits the slug themselves, stop auto-suggesting.
+storeSlugInput.addEventListener("input", () => {
+    storeSlugInput.dataset.userEdited = "true";
+});
     e.preventDefault();
 
     const businessName = document.getElementById("businessName").value;
