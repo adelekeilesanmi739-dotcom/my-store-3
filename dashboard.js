@@ -124,7 +124,6 @@ changeSelectionButton.addEventListener("click", () => {
     document.getElementById("productSelection").style.display = "block";
 });
 
-
 // =========================
 // SAVE BUSINESS INFO
 // =========================
