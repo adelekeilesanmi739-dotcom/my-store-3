@@ -130,8 +130,6 @@ changeSelectionButton.addEventListener("click", () => {
 // =========================
 
 const businessForm = document.getElementById("businessForm");
-
-businessForm.addEventListener("submit", async (e) => {
 // Auto-suggest a store URL slug as the user types a business name,
 // but only if they haven't already typed their own slug.
 const businessNameInput = document.getElementById("businessName");
@@ -151,7 +149,7 @@ businessNameInput.addEventListener("input", () => {
 
     storeSlugInput.value = suggestion;
 });
-
+businessForm.addEventListener("submit", async (e) => {
 // If the user manually edits the slug themselves, stop auto-suggesting.
 storeSlugInput.addEventListener("input", () => {
     storeSlugInput.dataset.userEdited = "true";
