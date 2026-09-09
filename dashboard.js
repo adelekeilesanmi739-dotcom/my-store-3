@@ -211,6 +211,9 @@ function showStoreLinkPreview(slug) {
 // PRODUCTS
 // =========================
 
+let loadedProducts = [];
+let editingProductId = null;
+
 async function loadProducts() {
 
     const { data, error } = await supabaseClient
@@ -218,6 +221,8 @@ async function loadProducts() {
         .select("id, name, price, description, image_url")
         .eq("user_id", currentUserId)
         .order("created_at", { ascending: false });
+
+    loadedProducts = data || [];
 
     const productList = document.getElementById("productList");
     productList.innerHTML = "";
@@ -237,11 +242,11 @@ async function loadProducts() {
         const item = document.createElement("div");
         item.className = "product-item";
 
-                 const priceText = product.price !== null
+        const priceText = product.price !== null
             ? `$${Number(product.price).toFixed(2)}`
             : "";
 
-                     const imageHtml = product.image_url
+        const imageHtml = product.image_url
             ? `<img src="${product.image_url}" alt="${escapeHtml(product.name)}" style="width: 100%; max-width: 300px; height: auto; border-radius: 10px; margin-top: 12px; display: block;">`
             : "";
 
@@ -254,33 +259,30 @@ async function loadProducts() {
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                         <span class="product-item-price">${priceText}</span>
-                        <button class="product-delete-button" data-id="${product.id}">Delete</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="product-delete-button" data-id="${product.id}" data-action="edit">Edit</button>
+                            <button class="product-delete-button" data-id="${product.id}" data-action="delete">Delete</button>
+                        </div>
                     </div>
                 </div>
                 ${imageHtml}
-            </div>
-        
-        `;
-
-        item.innerHTML = `
-            <div class="product-item-info">
-                <h4>${escapeHtml(product.name)}</h4>
-                <p>${escapeHtml(product.description || "")}</p>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                <span class="product-item-price">${priceText}</span>
-                <button class="product-delete-button" data-id="${product.id}">Delete</button>
             </div>
         `;
 
         productList.appendChild(item);
     });
 
-    // Wire up all the delete buttons we just created.
+    // Wire up all the edit/delete buttons we just created.
     document.querySelectorAll(".product-delete-button").forEach((button) => {
         button.addEventListener("click", async () => {
             const productId = button.getAttribute("data-id");
-            await deleteProduct(productId);
+            const action = button.getAttribute("data-action");
+
+            if (action === "edit") {
+                startEditingProduct(productId);
+            } else {
+                await deleteProduct(productId);
+            }
         });
     });
 }
@@ -293,6 +295,36 @@ function escapeHtml(text) {
 }
 
 const productForm = document.getElementById("productForm");
+const productSubmitButton = document.getElementById("productSubmitButton");
+const cancelEditButton = document.getElementById("cancelEditButton");
+
+function startEditingProduct(productId) {
+
+    const product = loadedProducts.find((p) => p.id === productId);
+    if (!product) return;
+
+    editingProductId = productId;
+
+    document.getElementById("productName").value = product.name;
+    document.getElementById("productPrice").value = product.price !== null ? product.price : "";
+    document.getElementById("productDescription").value = product.description || "";
+    // Note: file inputs can't be pre-filled for security reasons —
+    // the existing image stays unless the user chooses a new file.
+
+    productSubmitButton.textContent = "Update Product";
+    cancelEditButton.style.display = "inline-block";
+
+    document.getElementById("productForm").scrollIntoView({ behavior: "smooth" });
+}
+
+function stopEditingProduct() {
+    editingProductId = null;
+    productForm.reset();
+    productSubmitButton.textContent = "Add Product";
+    cancelEditButton.style.display = "none";
+}
+
+cancelEditButton.addEventListener("click", stopEditingProduct);
 
 productForm.addEventListener("submit", async (e) => {
 
@@ -333,26 +365,58 @@ productForm.addEventListener("submit", async (e) => {
         imageUrl = publicUrlData.publicUrl;
     }
 
-    productMessage.textContent = "Adding...";
+    if (editingProductId) {
 
-    const { error } = await supabaseClient
-        .from("products")
-        .insert({
-            user_id: currentUserId,
+        productMessage.textContent = "Updating...";
+
+        const updateData = {
             name: name,
             price: price,
-            description: description,
-            image_url: imageUrl
-        });
+            description: description
+        };
 
-    if (error) {
-        productMessage.textContent = "Something went wrong: " + error.message;
-        return;
+        // Only overwrite the image if the user picked a new one.
+        if (imageUrl) {
+            updateData.image_url = imageUrl;
+        }
+
+        const { error } = await supabaseClient
+            .from("products")
+            .update(updateData)
+            .eq("id", editingProductId);
+
+        if (error) {
+            productMessage.textContent = "Something went wrong: " + error.message;
+            return;
+        }
+
+        productMessage.textContent = "Product updated!";
+        stopEditingProduct();
+        await loadProducts();
+
+    } else {
+
+        productMessage.textContent = "Adding...";
+
+        const { error } = await supabaseClient
+            .from("products")
+            .insert({
+                user_id: currentUserId,
+                name: name,
+                price: price,
+                description: description,
+                image_url: imageUrl
+            });
+
+        if (error) {
+            productMessage.textContent = "Something went wrong: " + error.message;
+            return;
+        }
+
+        productMessage.textContent = "Product added!";
+        productForm.reset();
+        await loadProducts();
     }
-
-    productMessage.textContent = "Product added!";
-    productForm.reset();
-    await loadProducts();
 });
 
 async function deleteProduct(productId) {
@@ -365,6 +429,11 @@ async function deleteProduct(productId) {
     if (error) {
         alert("Couldn't delete this product: " + error.message);
         return;
+    }
+
+    // If you were editing the product you just deleted, exit edit mode.
+    if (editingProductId === productId) {
+        stopEditingProduct();
     }
 
     await loadProducts();
